@@ -209,14 +209,15 @@ function App() {
   );
 }
 
-function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
+function TransactionGraph({ nodes, edges, modelPredictions }) {
+  const canvasRef = useRef(null);
   const [nodeCount, setNodeCount] = useState(500);
   const [model, setModel] = useState("Unknown");
   const [selected, setSelected] = useState(null);
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 1000, h: 650 });
-  const svgRef = useRef(null);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState({ x: -0.25, y: 0.55 });
   const pointers = useRef(new Map());
-  const lastPinch = useRef(null);
+  const pinchRef = useRef(null);
 
   const visibleNodes = useMemo(() => nodes.slice(0, nodeCount), [nodes, nodeCount]);
   const nodeMap = useMemo(
@@ -225,10 +226,11 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
   );
   const visibleEdges = useMemo(
     () =>
-      edges.filter(
-        (edge) =>
+      edges
+        .filter((edge) =>
           nodeMap.has(Number(edge.source)) && nodeMap.has(Number(edge.target))
-      ).slice(0, 5000),
+        )
+        .slice(0, 14000),
     [edges, nodeMap]
   );
 
@@ -244,75 +246,154 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
     return "#64748b";
   };
 
-  const zoom = (factor, pointX = 500, pointY = 325) => {
-    setViewBox((box) => {
-      const nextW = Math.max(180, Math.min(1000, box.w * factor));
-      const nextH = nextW * 0.65;
-      const ratioX = (pointX - box.x) / box.w;
-      const ratioY = (pointY - box.y) / box.h;
-      return {
-        x: pointX - nextW * ratioX,
-        y: pointY - nextH * ratioY,
-        w: nextW,
-        h: nextH,
-      };
-    });
-  };
-
-  const handleWheel = (event) => {
-    event.preventDefault();
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
-    const y = ((event.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
-    zoom(event.deltaY > 0 ? 1.12 : 0.88, x, y);
-  };
-
-  const clientToSvg = (event) => {
-    const rect = svgRef.current.getBoundingClientRect();
+  const getPosition = (node, width, height) => {
+    const id = Number(node.txId);
+    const bx = ((id * 2654435761) % 1000003) / 1000003 - 0.5;
+    const by = ((id * 2246822519) % 1000033) / 1000033 - 0.5;
+    const bz = ((id * 3266489917) % 10000019) / 10000019 - 0.5;
+    const x = bx * 520;
+    const y = by * 520;
+    const z = bz * 520;
+    const cy = Math.cos(rotation.y);
+    const sy = Math.sin(rotation.y);
+    const cx = Math.cos(rotation.x);
+    const sx = Math.sin(rotation.x);
+    const rx = x * cy - z * sy;
+    const rz = x * sy + z * cy;
+    const ry = y * cx - rz * sx;
+    const rz2 = y * sx + rz * cx;
+    const scale = (720 / (820 + rz2)) * zoom;
     return {
-      x: ((event.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x,
-      y: ((event.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y,
+      x: width / 2 + rx * scale,
+      y: height / 2 + ry * scale,
+      z: rz2,
+      scale,
     };
   };
 
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    let frameId;
+
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+      }
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = rect.width;
+      const height = rect.height;
+      context.clearRect(0, 0, width, height);
+      context.fillStyle = "#091526";
+      context.fillRect(0, 0, width, height);
+
+      const cube = 300;
+      const corners = [
+        [-cube,-cube,-cube],[cube,-cube,-cube],[cube,cube,-cube],[-cube,cube,-cube],
+        [-cube,-cube,cube],[cube,-cube,cube],[cube,cube,cube],[-cube,cube,cube],
+      ];
+      const projectedCorners = corners.map(([x,y,z]) => getPosition({txId: 1 + ((x+cube)/600)*1000 + ((y+cube)/600)*10000 + ((z+cube)/600)*100000}, width, height));
+      context.strokeStyle = "rgba(45,212,191,.13)";
+      context.lineWidth = 1;
+      [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(([a,b]) => {
+        context.beginPath();
+        context.moveTo(projectedCorners[a].x, projectedCorners[a].y);
+        context.lineTo(projectedCorners[b].x, projectedCorners[b].y);
+        context.stroke();
+      });
+
+      const projectedNodes = new Map();
+      visibleNodes.forEach((node) => {
+        projectedNodes.set(Number(node.txId), getPosition(node, width, height));
+      });
+
+      context.lineWidth = 0.65;
+      visibleEdges.forEach((edge) => {
+        const source = projectedNodes.get(Number(edge.source));
+        const target = projectedNodes.get(Number(edge.target));
+        if (!source || !target) return;
+        context.strokeStyle = "rgba(121,151,176,.18)";
+        context.beginPath();
+        context.moveTo(source.x, source.y);
+        context.lineTo(target.x, target.y);
+        context.stroke();
+      });
+
+      [...visibleNodes]
+        .map((node) => ({node, position: projectedNodes.get(Number(node.txId))}))
+        .sort((a,b) => b.position.z - a.position.z)
+        .forEach(({node, position}) => {
+          const radius = Math.max(2.2, 4.5 * position.scale);
+          context.beginPath();
+          context.arc(position.x, position.y, selected?.txId === node.txId ? radius + 3 : radius, 0, Math.PI * 2);
+          context.fillStyle = nodeColor(node);
+          context.globalAlpha = 0.68 + Math.max(0, 1 - position.z / 900) * 0.32;
+          context.fill();
+          context.globalAlpha = 1;
+          if (selected?.txId === node.txId) {
+            context.strokeStyle = "#ffffff";
+            context.lineWidth = 2;
+            context.stroke();
+          }
+        });
+
+      frameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => cancelAnimationFrame(frameId);
+  }, [visibleNodes, visibleEdges, model, modelPredictions, selected, zoom, rotation]);
+
   const handlePointerDown = (event) => {
-    svgRef.current.setPointerCapture(event.pointerId);
-    pointers.current.set(event.pointerId, clientToSvg(event));
+    canvasRef.current.setPointerCapture(event.pointerId);
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
   };
 
   const handlePointerMove = (event) => {
     if (!pointers.current.has(event.pointerId)) return;
     const previous = pointers.current.get(event.pointerId);
-    const current = clientToSvg(event);
-    pointers.current.set(event.pointerId, current);
-
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size === 1) {
-      setViewBox((box) => ({
-        ...box,
-        x: box.x - (current.x - previous.x),
-        y: box.y - (current.y - previous.y),
+      setRotation((value) => ({
+        x: Math.max(-1.1, Math.min(1.1, value.x - (event.clientY - previous.y) * 0.006)),
+        y: value.y + (event.clientX - previous.x) * 0.006,
       }));
-      lastPinch.current = null;
-      return;
+    } else {
+      const points = [...pointers.current.values()];
+      const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      if (pinchRef.current) {
+        setZoom((value) => Math.max(0.55, Math.min(2.4, value * pinchRef.current / distance)));
+      }
+      pinchRef.current = distance;
     }
-
-    const points = [...pointers.current.values()];
-    const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
-    if (lastPinch.current) {
-      const factor = lastPinch.current / distance;
-      const centerX = (points[0].x + points[1].x) / 2;
-      const centerY = (points[0].y + points[1].y) / 2;
-      zoom(factor, centerX, centerY);
-    }
-    lastPinch.current = distance;
   };
 
   const handlePointerUp = (event) => {
     pointers.current.delete(event.pointerId);
-    lastPinch.current = null;
+    pinchRef.current = null;
   };
 
-  const resetView = () => setViewBox({ x: 0, y: 0, w: 1000, h: 650 });
+  const handleCanvasClick = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    let nearest = null;
+    let nearestDistance = 16;
+    visibleNodes.forEach((node) => {
+      const position = getPosition(node, rect.width, rect.height);
+      const distance = Math.hypot(position.x - x, position.y - y);
+      if (distance < nearestDistance) {
+        nearest = node;
+        nearestDistance = distance;
+      }
+    });
+    setSelected(nearest);
+  };
 
   const selectedPrediction =
     selected && model !== "Unknown"
@@ -320,7 +401,7 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
       : null;
 
   return (
-    <Panel title="Interactive transaction graph" subtitle="Real nodes and edges from the Elliptic dataset">
+    <Panel title="Network cube" subtitle="Rotate a real transaction network inside a spatial cube">
       <div className="graph-toolbar">
         <div className="model-switcher" aria-label="Choose model classification">
           {["Unknown", "MLP", "GraphSAGE", "GAT"].map((name) => (
@@ -334,17 +415,14 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
           ))}
         </div>
         <div className="graph-actions">
-          <button className="icon-button" onClick={() => zoom(0.82)}>+</button>
-          <button className="icon-button" onClick={() => zoom(1.22)}>−</button>
-          <button className="icon-button wide" onClick={resetView}>Reset</button>
+          <button className="icon-button" onClick={() => setZoom((value) => Math.min(2.4, value + 0.12))}>+</button>
+          <button className="icon-button" onClick={() => setZoom((value) => Math.max(0.55, value - 0.12))}>−</button>
+          <button className="icon-button wide" onClick={() => { setZoom(1); setRotation({x:-0.25,y:0.55}); }}>Reset</button>
         </div>
       </div>
 
       <div className="node-count">
-        <div>
-          <b>Visible nodes</b>
-          <span>{visibleNodes.length.toLocaleString()}</span>
-        </div>
+        <div><b>Visible nodes</b><span>{visibleNodes.length.toLocaleString()}</span></div>
         <input
           type="range"
           min="100"
@@ -355,56 +433,20 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
         />
       </div>
 
-      <div className="interactive-svg-wrap">
-        <svg
-          ref={svgRef}
-          className="interactive-graph"
-          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-          onWheel={handleWheel}
+      <div className="network-cube-wrap">
+        <canvas
+          ref={canvasRef}
+          className="network-cube"
+          onWheel={(event) => {
+            event.preventDefault();
+            setZoom((value) => Math.max(0.55, Math.min(2.4, value + (event.deltaY > 0 ? -0.08 : 0.08))));
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-        >
-          <rect x="-100" y="-100" width="1200" height="850" fill="#091526" />
-          {visibleEdges.map((edge, index) => {
-            const source = nodeMap.get(Number(edge.source));
-            const target = nodeMap.get(Number(edge.target));
-            if (!source || !target) return null;
-            return (
-              <line
-                key={`${edge.source}-${edge.target}-${index}`}
-                x1={source.x}
-                y1={source.y}
-                x2={target.x}
-                y2={target.y}
-                className="graph-edge"
-              />
-            );
-          })}
-          {visibleNodes.map((node) => (
-            <circle
-              key={node.txId}
-              cx={node.x}
-              cy={node.y}
-              r={selected?.txId === node.txId ? 8 : 4.2}
-              fill={nodeColor(node)}
-              stroke={selected?.txId === node.txId ? "#ffffff" : "none"}
-              strokeWidth={selected?.txId === node.txId ? 2 : 0}
-              className="graph-node"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                setSelected(node);
-              }}
-            >
-              <title>
-                {node.txId} · {displayLabel(node)} · time step {node.timeStep}
-              </title>
-            </circle>
-          ))}
-        </svg>
-
+          onClick={handleCanvasClick}
+        />
         {selected && (
           <div className="node-inspector">
             <button onClick={() => setSelected(null)} aria-label="Close node details">×</button>
@@ -431,22 +473,10 @@ function TransactionGraph({ nodes, edges, modelPredictions, modelRows }) {
       </div>
 
       <div className="graph-explanation">
-        <div>
-          <b>Scroll or pinch</b>
-          <span>Zoom into clusters</span>
-        </div>
-        <div>
-          <b>Drag</b>
-          <span>Move around the graph</span>
-        </div>
-        <div>
-          <b>Select a node</b>
-          <span>Inspect its transaction details</span>
-        </div>
-        <div>
-          <b>Choose a model</b>
-          <span>Reclassify unknown nodes only</span>
-        </div>
+        <div><b>Scroll or pinch</b><span>Zoom through the cube</span></div>
+        <div><b>Drag</b><span>Rotate the network</span></div>
+        <div><b>Select a node</b><span>Inspect transaction details</span></div>
+        <div><b>Choose a model</b><span>Reclassify unknown nodes only</span></div>
       </div>
     </Panel>
   );

@@ -83,6 +83,11 @@ Model predictions are exported from the seed-46 saved model weights and each
 model's normal-run test threshold. The graph does not fabricate predictions
 for nodes that do not belong to the exported graph sample.
 
+The graph uses a lightweight canvas network cube instead of a force-layout
+library or Plotly. It renders real transaction relationships inside a spatial
+cube, supports mouse/touch orbit and pinch zoom, and keeps the model controls
+close to the visualization.
+
 ## One-command normal experiment and React launch
 
 To use the already completed 5-seed normal results and start React:

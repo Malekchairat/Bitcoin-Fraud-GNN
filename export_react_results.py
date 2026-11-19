@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timezone
+from collections import deque
 from pathlib import Path
 
 import pandas as pd
@@ -29,15 +30,15 @@ def export_graph_data() -> None:
 
     frame = transactions.sort_values(["time_step", "txId"])
     illicit = frame[frame["label"] == "illicit"].sample(
-        n=min(600, int((frame["label"] == "illicit").sum())),
+        n=min(300, int((frame["label"] == "illicit").sum())),
         random_state=42,
     )
     licit = frame[frame["label"] == "licit"].sample(
-        n=min(600, int((frame["label"] == "licit").sum())),
+        n=min(300, int((frame["label"] == "licit").sum())),
         random_state=42,
     )
     unknown = frame[frame["label"] == "unknown"].sample(
-        n=min(800, int((frame["label"] == "unknown").sum())),
+        n=min(400, int((frame["label"] == "unknown").sum())),
         random_state=42,
     )
     seeds = pd.concat([illicit, licit, unknown])
@@ -49,14 +50,18 @@ def export_graph_data() -> None:
         adjacency.setdefault(source, []).append(target)
         adjacency.setdefault(target, []).append(source)
 
-    selected_ids = set(seeds["txId"].astype(int).tolist())
-    for seed_id in list(selected_ids):
-        if len(selected_ids) >= 2000:
-            break
-        for neighbor_id in adjacency.get(seed_id, [])[:12]:
-            selected_ids.add(int(neighbor_id))
-            if len(selected_ids) >= 2000:
-                break
+    seed_ids = seeds["txId"].astype(int).tolist()
+    selected_ids = set(seed_ids)
+    queue = deque(seed_ids)
+    while queue and len(selected_ids) < 2000:
+        current = queue.popleft()
+        for neighbor_id in adjacency.get(current, []):
+            neighbor_id = int(neighbor_id)
+            if neighbor_id not in selected_ids:
+                selected_ids.add(neighbor_id)
+                queue.append(neighbor_id)
+                if len(selected_ids) >= 2000:
+                    break
 
     sampled = frame[frame["txId"].isin(selected_ids)].sort_values(
         ["time_step", "txId"]

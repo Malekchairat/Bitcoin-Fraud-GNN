@@ -123,6 +123,9 @@ main { min-width: 0; padding: 28px 38px 20px; background: radial-gradient(circle
 .interactive-svg-wrap { position:relative; height:620px; border:1px solid rgba(148,163,184,.11); border-radius:14px; overflow:hidden; background:#091526; }
 .interactive-graph { width:100%; height:100%; touch-action:none; cursor:grab; user-select:none; }
 .interactive-graph:active { cursor:grabbing; }
+.network-cube-wrap { position:relative; height:620px; border:1px solid rgba(45,212,191,.12); border-radius:14px; overflow:hidden; background:#091526; box-shadow:inset 0 0 70px rgba(45,212,191,.025); }
+.network-cube { width:100%; height:100%; touch-action:none; cursor:grab; user-select:none; }
+.network-cube:active { cursor:grabbing; }
 .graph-edge { stroke:#52647a; stroke-opacity:.24; stroke-width:.7; }
 .graph-node { cursor:pointer; transition: r 120ms ease, opacity 120ms ease; }
 .graph-node:hover { r:7px; }
