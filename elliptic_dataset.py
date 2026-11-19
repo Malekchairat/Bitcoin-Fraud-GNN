@@ -16,12 +16,28 @@ def load_elliptic_dataset(
     class_path = data_dir / "elliptic_txs_classes.csv"
     edge_path = data_dir / "elliptic_txs_edgelist.csv"
 
-    features = pd.read_csv(feature_path)
-    classes = pd.read_csv(class_path)
-    edges = pd.read_csv(edge_path)
+    raw_features = pd.read_csv(feature_path)
+    if "txId" in raw_features.columns:
+        features = raw_features
+    else:
+        features = pd.read_csv(feature_path, header=None)
+        features.columns = ["txId", "time"] + [
+            f"feature_{i}" for i in range(features.shape[1] - 2)
+        ]
 
-    if "txId" not in features.columns:
-        features = features.rename(columns={features.columns[0]: "txId"})
+    raw_classes = pd.read_csv(class_path)
+    if "txId" in raw_classes.columns:
+        classes = raw_classes
+    else:
+        classes = pd.read_csv(class_path, header=None)
+        classes.columns = ["txId", "class"]
+
+    raw_edges = pd.read_csv(edge_path)
+    if "txId1" in raw_edges.columns and "txId2" in raw_edges.columns:
+        edges = raw_edges
+    else:
+        edges = pd.read_csv(edge_path, header=None)
+        edges.columns = ["txId1", "txId2"]
     tx_ids = features["txId"].astype(str)
     id_to_index = {tx_id: i for i, tx_id in enumerate(tx_ids)}
 
@@ -76,5 +92,5 @@ def load_elliptic_dataset(
         edge_index,
         torch.from_numpy(y),
         torch.arange(len(tx_ids), dtype=torch.long),
-        torch.from_numpy(timestamps),
+        torch.from_numpy(timestamps.copy()),
     )
