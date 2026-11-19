@@ -27,6 +27,16 @@ The dashboard opens in a browser and shows:
 The app does not retrain models automatically. Run the notebook first if you
 want model metrics to appear in the final section.
 
+## Execution modes
+
+The notebook now sets `FAST_MODE = False`, so it is aligned with normal mode:
+
+- Normal: 200 epochs maximum, patience 30, 5 seeds
+- FAST: 30 epochs maximum, patience 5, 1 seed
+- The external `--balanced` option: 60 epochs maximum, patience 10, 3 seeds
+
+The five-seed normal run is the most robust current result.
+
 ## Deploy on Streamlit Community Cloud
 
 This app is ready for Streamlit Community Cloud:
