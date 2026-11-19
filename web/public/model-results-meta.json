@@ -1,0 +1,15 @@
+{
+  "source": "C:\\Users\\msi\\Desktop\\Bitcoin-Fraud-GNN\\outputs\\tables\\model_results.csv",
+  "seed_count": 5,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "model_count": 3,
+  "row_count": 15,
+  "exported_at": "2026-11-19T20:10:52.266665+00:00",
+  "mode": "normal"
+}

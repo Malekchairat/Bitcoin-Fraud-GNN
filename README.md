@@ -67,6 +67,45 @@ The React interface is ready for Vercel. In the Vercel project settings, set:
 - Build Command: `npm run build`
 - Output Directory: `dist`
 
+## Interactive graph
+
+The Graph section uses exported real Elliptic transaction nodes and edges. It
+supports:
+
+- mouse-wheel zoom and touch pinch;
+- drag/pan movement;
+- adjustable node count from 100 to 2,000;
+- transaction-node selection;
+- original-label view with unknown nodes in grey;
+- real MLP, GraphSAGE, or GAT predictions for sampled unknown nodes.
+
+Model predictions are exported from the seed-46 saved model weights and each
+model's normal-run test threshold. The graph does not fabricate predictions
+for nodes that do not belong to the exported graph sample.
+
+## One-command normal experiment and React launch
+
+To use the already completed 5-seed normal results and start React:
+
+```powershell
+.\run_normal_and_web.ps1
+```
+
+This command:
+
+1. skips retraining and uses the saved normal evidence;
+2. exports `model_results.csv` to `web/public/model-results.json`;
+3. starts Vite for the React interface.
+
+To retrain all 5 seeds intentionally:
+
+```powershell
+.\run_normal_and_web.ps1 -TrainNormal
+```
+
+The React app uses exported real results. It does not generate random or mock
+model metrics.
+
 ## Deploy on Streamlit Community Cloud
 
 This app is ready for Streamlit Community Cloud:
