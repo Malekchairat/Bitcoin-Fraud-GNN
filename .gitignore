@@ -12,3 +12,6 @@ data/raw/
 *.pt
 .venv*/
 .streamlit-home/
+web/node_modules/
+web/dist/
+.ipynb_checkpoints/

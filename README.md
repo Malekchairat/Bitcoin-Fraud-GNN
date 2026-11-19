@@ -37,6 +37,36 @@ The notebook now sets `FAST_MODE = False`, so it is aligned with normal mode:
 
 The five-seed normal run is the most robust current result.
 
+## Polished public interface
+
+A React/Vite interface is available in [web/](C:/Users/msi/Desktop/Bitcoin-Fraud-GNN/web).
+It is not a duplicate Streamlit prototype: it presents the research story,
+dataset, graph, and normal-mode model comparison with a cleaner navigation and
+responsive layout.
+
+For local development:
+
+```powershell
+cd web
+npm.cmd install
+npm.cmd run dev
+```
+
+For a production build:
+
+```powershell
+cd web
+npm.cmd run build
+npm.cmd run preview
+```
+
+The React interface is ready for Vercel. In the Vercel project settings, set:
+
+- Root Directory: `web`
+- Framework Preset: Vite
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
 ## Deploy on Streamlit Community Cloud
 
 This app is ready for Streamlit Community Cloud:
