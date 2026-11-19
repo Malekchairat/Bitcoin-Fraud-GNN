@@ -1,17 +1,17 @@
-FROM python:3.13-slim
+FROM node:22-alpine AS build
 
 WORKDIR /app
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ .
+RUN npm run build
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+FROM nginx:1.27-alpine
 
-COPY app.py .
-COPY data/processed ./data/processed
-COPY outputs/tables ./outputs/tables
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 8501
+EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
-
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+  CMD wget -q --spider http://localhost/ || exit 1

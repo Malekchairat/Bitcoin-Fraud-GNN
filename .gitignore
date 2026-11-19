@@ -2,6 +2,13 @@ __pycache__/
 *.py[cod]
 .venv/
 .venv-*/
+.ipynb_checkpoints/
+.streamlit/
+.streamlit-home/
+web/node_modules/
+web/dist/
+__pycache__/
+*.pyc
 .streamlit/secrets.toml
 .pytest_cache/
 .coverage
@@ -10,7 +17,7 @@ htmlcov/
 .DS_Store
 data/raw/
 *.pt
-.venv*/
+outputs/models/
 .streamlit-home/
 web/node_modules/
 web/dist/

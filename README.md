@@ -1,168 +1,184 @@
-﻿# Bitcoin Fraud Detection GNN
+# Bitcoin Fraud Detection GNN
 
-This project studies illicit Bitcoin transactions in the Elliptic transaction
-graph. The notebook builds the graph and compares graph neural network models
-with a non-graph baseline using a leakage-safe temporal split.
+Projet de détection de transactions Bitcoin illicites sur le jeu de données
+Elliptic. Il compare un MLP, un GraphSAGE et un GAT avec une validation
+temporelle qui évite les fuites de données.
 
-## View the results
+## Résultat principal
 
-Install the pinned dependencies, then start the dashboard from the project
-root:
+Une évaluation normale sur **5 seeds** donne les moyennes suivantes :
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m streamlit run app.py
+| Modèle | F1 illicite | Recall illicite | PR-AUC |
+|---|---:|---:|---:|
+| **GraphSAGE** | **0.5454** | 0.5633 | **0.4967** |
+| MLP | 0.4874 | 0.5215 | 0.3105 |
+| GAT | 0.4754 | 0.4988 | 0.4133 |
+
+GraphSAGE est actuellement le meilleur compromis global.
+
+## Contenu du projet
+
+```text
+Bitcoin-Fraud-GNN/
+├── Bitcoin_Fraud_Detection_GNN.ipynb  # Analyse, entraînement et évaluation
+├── train_models.py                    # Entraînement MLP, GraphSAGE et GAT
+├── export_react_results.py            # Export des résultats vers React
+├── run_normal_and_web.ps1             # Lancement rapide du site
+├── web/                               # Interface React moderne
+├── data/raw/                          # Fichiers Elliptic originaux
+├── data/processed/                    # Données légères pour les visualisations
+├── outputs/tables/                    # Résultats CSV
+├── outputs/models/                    # Poids des modèles entraînés
+└── tests/                             # Tests du dashboard
 ```
 
-The dashboard opens in a browser and shows:
+Les fichiers complets du dossier `data/raw/` ne sont pas nécessaires pour
+afficher le site React. Ils ne sont pas envoyés sur GitHub.
 
-- transaction, edge, feature, and class totals;
-- the notebook's chronological train/validation/test split;
-- transaction volume and illicit-rate charts over time;
-- a transaction ID lookup;
-- a labelled graph view of a transaction and its direct neighbors;
-- a rotatable, zoomable 3D WebGL graph overview with performance controls;
-- saved model comparison tables from `outputs/tables`, when available.
+## Démarrage rapide
 
-The app does not retrain models automatically. Run the notebook first if you
-want model metrics to appear in the final section.
-
-## Execution modes
-
-The notebook now sets `FAST_MODE = False`, so it is aligned with normal mode:
-
-- Normal: 200 epochs maximum, patience 30, 5 seeds
-- FAST: 30 epochs maximum, patience 5, 1 seed
-- The external `--balanced` option: 60 epochs maximum, patience 10, 3 seeds
-
-The five-seed normal run is the most robust current result.
-
-## Polished public interface
-
-A React/Vite interface is available in [web/](C:/Users/msi/Desktop/Bitcoin-Fraud-GNN/web).
-It is not a duplicate Streamlit prototype: it presents the research story,
-dataset, graph, and normal-mode model comparison with a cleaner navigation and
-responsive layout.
-
-For local development:
+Depuis PowerShell :
 
 ```powershell
-cd web
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN
+.\run_normal_and_web.ps1
+```
+
+Cette commande :
+
+1. utilise les résultats normaux déjà enregistrés ;
+2. exporte les métriques et les prédictions vers React ;
+3. démarre l’interface sur `http://localhost:5173`.
+
+Elle ne relance pas les entraînements.
+
+Pour démarrer uniquement React :
+
+```powershell
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN\web
 npm.cmd install
 npm.cmd run dev
 ```
 
-For a production build:
+## Entraîner les modèles
+
+Le mode FAST utilise 1 seed, 30 epochs maximum et une patience de 5.
+
+Le mode normal utilise 5 seeds, 200 epochs maximum et une patience de 30 :
 
 ```powershell
-cd web
-npm.cmd run build
-npm.cmd run preview
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN
+.\.venv\Scripts\python.exe train_models.py --normal
 ```
 
-The React interface is ready for Vercel. In the Vercel project settings, set:
-
-- Root Directory: `web`
-- Framework Preset: Vite
-- Build Command: `npm run build`
-- Output Directory: `dist`
-
-## Interactive graph
-
-The Graph section uses exported real Elliptic transaction nodes and edges. It
-supports:
-
-- mouse-wheel zoom and touch pinch;
-- drag/pan movement;
-- adjustable node count from 100 to 2,000;
-- transaction-node selection;
-- original-label view with unknown nodes in grey;
-- real MLP, GraphSAGE, or GAT predictions for sampled unknown nodes.
-
-Model predictions are exported from the seed-46 saved model weights and each
-model's normal-run test threshold. The graph does not fabricate predictions
-for nodes that do not belong to the exported graph sample.
-
-The graph uses a lightweight canvas network cube instead of a force-layout
-library or Plotly. It renders real transaction relationships inside a spatial
-cube, supports mouse/touch orbit and pinch zoom, and keeps the model controls
-close to the visualization.
-
-## One-command normal experiment and React launch
-
-To use the already completed 5-seed normal results and start React:
+Après l’entraînement, exporter les nouveaux résultats :
 
 ```powershell
-.\run_normal_and_web.ps1
+.\.venv\Scripts\python.exe export_react_results.py
 ```
 
-This command:
-
-1. skips retraining and uses the saved normal evidence;
-2. exports `model_results.csv` to `web/public/model-results.json`;
-3. starts Vite for the React interface.
-
-To retrain all 5 seeds intentionally:
+Relancer tout avec entraînement normal :
 
 ```powershell
 .\run_normal_and_web.ps1 -TrainNormal
 ```
 
-The React app uses exported real results. It does not generate random or mock
-model metrics.
+## Exécuter le notebook
 
-## Deploy on Streamlit Community Cloud
-
-This app is ready for Streamlit Community Cloud:
-
-1. Push this project to a public or private GitHub repository.
-2. Open Streamlit Community Cloud and create a new app.
-3. Select the repository and set the main file to `app.py`.
-4. Set Python 3.13 if the platform asks for a version.
-5. Add no secrets: this dashboard reads local processed CSV files.
-
-The repository should include `app/`, `data/processed/`, and `outputs/tables/`.
-The raw 690 MB feature file is not required for the public dashboard and is
-excluded through `.gitignore`.
-
-### Deploy with Docker
-
-Docker is also supported:
+Le notebook doit être ouvert depuis le dossier du projet :
 
 ```powershell
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN
+.\.venv\Scripts\Activate.ps1
+jupyter lab Bitcoin_Fraud_Detection_GNN.ipynb
+```
+
+Dans JupyterLab :
+
+1. vérifier que `FAST_MODE = False` ;
+2. choisir **Restart Kernel and Run All Cells** ;
+3. ne relancer aucun entraînement supplémentaire si les résultats sont déjà
+   enregistrés.
+
+Pour exécuter le notebook avec le script :
+
+```powershell
+.\run_normal_and_web.ps1 -ExecuteNotebook
+```
+
+## Interface React
+
+L’interface principale se trouve dans `web/`.
+
+Elle contient :
+
+- une vue générale du dataset ;
+- la distribution des classes ;
+- le découpage temporel ;
+- les résultats des trois modèles ;
+- un cube réseau interactif ;
+- les relations réelles entre transactions ;
+- des prédictions MLP, GraphSAGE et GAT sur les transactions inconnues.
+
+### Utiliser le graphe
+
+- faire défiler ou pincer pour zoomer ;
+- glisser pour tourner le réseau ;
+- cliquer sur un nœud pour voir ses détails ;
+- modifier le nombre de nœuds affichés ;
+- sélectionner **Original labels** pour laisser les inconnus en gris ;
+- sélectionner MLP, GraphSAGE ou GAT pour afficher ses prédictions.
+
+Les prédictions changent uniquement les transactions actuellement marquées
+comme inconnues. Les transactions licites ou illicites connues ne sont pas
+modifiées.
+
+## Construction du site React
+
+```powershell
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN\web
+npm.cmd install
+npm.cmd run build
+npm.cmd run preview
+```
+
+## Déploiement sur Vercel
+
+Le dossier public pour Vercel est `web/`.
+
+Dans Vercel :
+
+- Root Directory : `web`
+- Framework : Vite
+- Build Command : `npm run build`
+- Output Directory : `dist`
+
+Les résultats affichés proviennent de fichiers JSON exportés depuis les
+résultats réels du notebook. Ils ne sont pas générés aléatoirement.
+
+## Déploiement avec Docker
+
+```powershell
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN
 docker build -t bitcoin-fraud-dashboard .
-docker run --rm -p 8501:8501 bitcoin-fraud-dashboard
+docker run --rm -p 8080:80 bitcoin-fraud-dashboard
 ```
 
-Vercel is not the simplest platform for this application because Streamlit is
-a stateful Python server. Streamlit Community Cloud or Render are easier
-choices. Docker deployment works on Azure Container Apps or another container
-platform later.
+Puis ouvrir `http://localhost:8080`.
 
-## Train the models
-
-The modelling phase is also available as a reproducible script. It trains the
-MLP baseline, GraphSAGE, and GAT using the same temporal split as the notebook:
+## Tests
 
 ```powershell
-.\.venv\Scripts\python.exe train_models.py
+cd C:\Users\msi\Desktop\Bitcoin-Fraud-GNN
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-The default FAST run uses one seed, up to 30 epochs, and early stopping. It
-writes test metrics to `outputs/tables/model_results.csv`, training traces to
-`outputs/tables/training_history.csv`, threshold searches to
-`outputs/tables/threshold_search.csv`, and model weights to `outputs/models`.
+## Informations importantes
 
-For the notebook-normal experiment with five seeds, up to 200 epochs, and
-patience 30:
-
-```powershell
-.\.venv\Scripts\python.exe train_models.py --normal
-```
-
-For a lower-CPU multi-seed experiment with three seeds, up to 60 epochs, and
-patience 10:
-
-```powershell
-.\.venv\Scripts\python.exe train_models.py --balanced
-```
+- `unknown` signifie « étiquette non connue », pas licite.
+- Les mesures principales sont F1 illicite, recall, ROC-AUC et PR-AUC.
+- Le découpage est temporel : entraînement sur les steps 1–29, validation sur
+  les steps 30–34, test sur les steps 35–49.
+- Les métriques normal-mode sont calculées sur 5 seeds.
+- Le graphe React est un échantillon explicatif de 2 000 transactions ; il ne
+  dessine pas les 203 769 transactions simultanément.
